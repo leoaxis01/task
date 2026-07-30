@@ -12,22 +12,35 @@ export default function RegisterPage() {
   const [role, setRole] = useState<UserRole>("Student");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("task2026");
   const [mobile, setMobile] = useState("");
   const [district, setDistrict] = useState("Hyderabad");
   const [stream, setStream] = useState("Engineering");
+  const [company, setCompany] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
-    register({
+    setLoading(true);
+    setError("");
+    const err = await register({
       name,
       email,
+      password,
       mobile,
       role,
       district,
       stream,
       college: "TASK Registered College",
+      company: role === "Employer" ? company || name : undefined,
     });
-    router.push("/dashboard");
+    setLoading(false);
+    if (err) {
+      setError(err);
+      return;
+    }
+    router.push(role === "Employer" ? "/employers" : "/dashboard");
   }
 
   return (
@@ -35,14 +48,11 @@ export default function RegisterPage() {
       <PageHero
         eyebrow="New registration"
         title="Join the TASK employability ecosystem"
-        description="Create your active portal account to enrol in courses, request mentors, apply to jobs, and track your employability score."
+        description="Create a server-backed account to enrol, apply, request mentors, post jobs, and track employability across Telangana."
       />
       <section className="section-pad">
         <div className="container-page max-w-xl">
-          <form
-            onSubmit={onSubmit}
-            className="border border-line bg-white p-6 sm:p-8"
-          >
+          <form onSubmit={onSubmit} className="border border-line bg-white p-6 sm:p-8">
             <label className="block text-sm font-medium">
               I am registering as
               <select
@@ -90,6 +100,27 @@ export default function RegisterPage() {
               />
             </label>
             <label className="mt-4 block text-sm font-medium">
+              Password
+              <input
+                required
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="mt-1 w-full border border-line bg-mist px-3 py-2"
+              />
+            </label>
+            {role === "Employer" ? (
+              <label className="mt-4 block text-sm font-medium">
+                Company
+                <input
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  className="mt-1 w-full border border-line bg-mist px-3 py-2"
+                  placeholder="Organisation / MSME name"
+                />
+              </label>
+            ) : null}
+            <label className="mt-4 block text-sm font-medium">
               District
               <select
                 className="mt-1 w-full border border-line bg-mist px-3 py-2"
@@ -121,9 +152,10 @@ export default function RegisterPage() {
                 <option>MBA / MCA / PG</option>
               </select>
             </label>
-            <button type="submit" className="btn-primary mt-6 w-full">
-              Create account &amp; open dashboard
+            <button type="submit" className="btn-primary mt-6 w-full" disabled={loading}>
+              {loading ? "Creating account..." : "Create account & continue"}
             </button>
+            {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
             <p className="mt-4 text-sm text-ink/60">
               Already registered?{" "}
               <Link href="/login" className="font-semibold text-brand">

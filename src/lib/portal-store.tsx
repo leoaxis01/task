@@ -27,6 +27,7 @@ export type PortalUser = {
   district: string;
   stream: string;
   college?: string;
+  company?: string;
 };
 
 export type Enrollment = {
@@ -38,8 +39,22 @@ export type Enrollment = {
   status: "enrolled" | "in-progress" | "completed";
 };
 
+export type JobPost = {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  type: string;
+  skills: string[];
+  match?: number;
+  description?: string;
+  employerId?: string;
+  createdAt?: string;
+};
+
 export type JobApplication = {
   id: string;
+  jobId?: string;
   jobTitle: string;
   company: string;
   appliedAt: string;
@@ -77,7 +92,15 @@ export type SkillAssessment = {
   updatedAt: string;
 };
 
-type PortalState = {
+export type Venture = {
+  id: string;
+  program: string;
+  title: string;
+  submittedAt: string;
+};
+
+type PortalContextValue = {
+  hydrated: boolean;
   user: PortalUser | null;
   enrollments: Enrollment[];
   applications: JobApplication[];
@@ -85,26 +108,42 @@ type PortalState = {
   notifications: NotificationItem[];
   resume: ResumeDraft;
   assessment: SkillAssessment | null;
+  ventures: Venture[];
+  jobs: JobPost[];
   language: "EN" | "TE";
-};
-
-type PortalContextValue = PortalState & {
-  hydrated: boolean;
-  register: (input: Omit<PortalUser, "id"> & { password?: string }) => void;
-  login: (email: string, role: UserRole) => boolean;
-  logout: () => void;
-  enrollCourse: (technology: string, module: string) => void;
-  applyJob: (jobTitle: string, company: string) => void;
-  requestMentor: (mentorName: string, focus: string) => void;
-  saveResume: (resume: ResumeDraft) => void;
-  saveAssessment: (assessment: SkillAssessment) => void;
-  markNotificationsRead: () => void;
-  pushNotification: (title: string, body: string) => void;
-  setLanguage: (lang: "EN" | "TE") => void;
   unreadCount: number;
+  refresh: () => Promise<void>;
+  register: (input: {
+    name: string;
+    email: string;
+    password?: string;
+    mobile?: string;
+    role: UserRole;
+    district: string;
+    stream: string;
+    college?: string;
+    company?: string;
+  }) => Promise<string | null>;
+  login: (email: string, password: string, role?: UserRole) => Promise<string | null>;
+  logout: () => Promise<void>;
+  enrollCourse: (technology: string, module: string) => Promise<void>;
+  applyJob: (jobId: string) => Promise<void>;
+  postJob: (input: {
+    title: string;
+    company: string;
+    location: string;
+    type: string;
+    skills: string;
+    description: string;
+  }) => Promise<string | null>;
+  requestMentor: (mentorName: string, focus: string) => Promise<void>;
+  saveResume: (resume: ResumeDraft) => Promise<void>;
+  saveAssessment: (assessment: SkillAssessment) => Promise<void>;
+  submitVenture: (program: string, title: string) => Promise<void>;
+  markNotificationsRead: () => Promise<void>;
+  setLanguage: (lang: "EN" | "TE") => void;
+  t: (key: string) => string;
 };
-
-const STORAGE_KEY = "task-portal-v1";
 
 const defaultResume: ResumeDraft = {
   headline: "",
@@ -114,303 +153,311 @@ const defaultResume: ResumeDraft = {
   projects: "",
 };
 
-const defaultState: PortalState = {
-  user: null,
-  enrollments: [],
-  applications: [],
-  mentorships: [],
-  notifications: [],
-  resume: defaultResume,
-  assessment: null,
-  language: "EN",
+const STRINGS: Record<"EN" | "TE", Record<string, string>> = {
+  EN: {
+    brandSub: "Telangana Academy for Skill and Knowledge",
+    skillOfferings: "Skill Offerings",
+    mentorship: "Mentorship",
+    jobCentres: "Job Centres",
+    skillGap: "Skill Gap",
+    learningHub: "Learning Hub",
+    commandCentre: "Command Centre",
+    entrepreneurship: "Entrepreneurship",
+    myDashboard: "My Dashboard",
+    signIn: "Sign In",
+    register: "Register",
+    signOut: "Sign out",
+    employerHub: "Employer Hub",
+    jobFair: "Job Fair",
+    colleges: "Colleges",
+  },
+  TE: {
+    brandSub: "తెలంగాణ నైపుణ్య మరియు జ్ఞాన అకాడమీ",
+    skillOfferings: "నైపుణ్య కోర్సులు",
+    mentorship: "మార్గదర్శకత్వం",
+    jobCentres: "ఉద్యోగ కేంద్రాలు",
+    skillGap: "నైపుణ్య అంతరం",
+    learningHub: "అభ్యసన కేంద్రం",
+    commandCentre: "కమాండ్ సెంటర్",
+    entrepreneurship: "వ్యవస్థాపకత్వం",
+    myDashboard: "నా డాష్‌బోర్డ్",
+    signIn: "సైన్ ఇన్",
+    register: "నమోదు",
+    signOut: "సైన్ అవుట్",
+    employerHub: "యజమాని హబ్",
+    jobFair: "జాబ్ ఫెయిర్",
+    colleges: "కళాశాలలు",
+  },
 };
 
 const PortalContext = createContext<PortalContextValue | null>(null);
 
-function uid(prefix: string) {
-  return `${prefix}_${Math.random().toString(36).slice(2, 9)}_${Date.now().toString(36)}`;
+async function api<T>(url: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers || {}),
+    },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || `Request failed (${res.status})`);
+  }
+  return data as T;
 }
 
 export function PortalProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<PortalState>(defaultState);
   const [hydrated, setHydrated] = useState(false);
+  const [user, setUser] = useState<PortalUser | null>(null);
+  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [mentorships, setMentorships] = useState<MentorshipRequest[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [resume, setResume] = useState<ResumeDraft>(defaultResume);
+  const [assessment, setAssessment] = useState<SkillAssessment | null>(null);
+  const [ventures, setVentures] = useState<Venture[]>([]);
+  const [jobs, setJobs] = useState<JobPost[]>([]);
+  const [language, setLanguageState] = useState<"EN" | "TE">("EN");
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as PortalState;
-        setState({ ...defaultState, ...parsed, resume: parsed.resume ?? defaultResume });
-      }
-    } catch {
-      // ignore corrupt storage
+  const refresh = useCallback(async () => {
+    const me = await api<{
+      user: PortalUser | null;
+      enrollments?: Enrollment[];
+      applications?: JobApplication[];
+      mentorships?: MentorshipRequest[];
+      notifications?: NotificationItem[];
+      resume?: ResumeDraft;
+      assessment?: SkillAssessment | null;
+      ventures?: Venture[];
+      jobs?: JobPost[];
+    }>("/api/auth/me");
+    setUser(me.user);
+    setEnrollments(me.enrollments || []);
+    setApplications(me.applications || []);
+    setMentorships(me.mentorships || []);
+    setNotifications(me.notifications || []);
+    setResume(me.resume || defaultResume);
+    setAssessment(me.assessment || null);
+    setVentures(me.ventures || []);
+    if (me.jobs) setJobs(me.jobs);
+    else {
+      const jobsRes = await api<{ jobs: JobPost[] }>("/api/jobs");
+      setJobs(jobsRes.jobs);
     }
-    setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }, [state, hydrated]);
+    const lang = localStorage.getItem("task-lang");
+    if (lang === "EN" || lang === "TE") setLanguageState(lang);
+    refresh()
+      .catch(() => undefined)
+      .finally(() => setHydrated(true));
+  }, [refresh]);
 
-  const pushNotification = useCallback((title: string, body: string) => {
-    setState((prev) => ({
-      ...prev,
-      notifications: [
-        {
-          id: uid("n"),
-          title,
-          body,
-          createdAt: new Date().toISOString(),
-          read: false,
-        },
-        ...prev.notifications,
-      ].slice(0, 40),
-    }));
+  const setLanguage = useCallback((lang: "EN" | "TE") => {
+    setLanguageState(lang);
+    localStorage.setItem("task-lang", lang);
   }, []);
 
-  const register = useCallback(
-    (input: Omit<PortalUser, "id">) => {
-      const user: PortalUser = { ...input, id: uid("u") };
-      setState((prev) => ({
-        ...prev,
-        user,
-        notifications: [
-          {
-            id: uid("n"),
-            title: "Welcome to TASK 2.0",
-            body: `Your ${input.role.toLowerCase()} account is active. Explore courses, mentorship, and jobs.`,
-            createdAt: new Date().toISOString(),
-            read: false,
-          },
-          ...prev.notifications,
-        ],
-      }));
-    },
-    []
+  const t = useCallback(
+    (key: string) => STRINGS[language][key] || STRINGS.EN[key] || key,
+    [language]
   );
 
-  const login = useCallback((email: string, role: UserRole) => {
-    const normalized = email.trim().toLowerCase();
-    if (!normalized) return false;
-    setState((prev) => {
-      const existing =
-        prev.user && prev.user.email.toLowerCase() === normalized
-          ? { ...prev.user, role }
-          : {
-              id: uid("u"),
-              name: normalized.split("@")[0].replace(/[._]/g, " "),
-              email: normalized,
-              role,
-              district: prev.user?.district ?? "Hyderabad",
-              stream: prev.user?.stream ?? "Engineering",
-              college: prev.user?.college ?? "Registered College",
-            };
-      return {
-        ...prev,
-        user: {
-          ...existing,
-          name: existing.name.replace(/\b\w/g, (c) => c.toUpperCase()),
-        },
-        notifications: [
-          {
-            id: uid("n"),
-            title: "Signed in",
-            body: `Session active as ${role}.`,
-            createdAt: new Date().toISOString(),
-            read: false,
-          },
-          ...prev.notifications,
-        ],
-      };
-    });
-    return true;
-  }, []);
+  const register: PortalContextValue["register"] = useCallback(
+    async (input) => {
+      try {
+        await api("/api/auth/register", {
+          method: "POST",
+          body: JSON.stringify(input),
+        });
+        await refresh();
+        return null;
+      } catch (e) {
+        return e instanceof Error ? e.message : "Registration failed";
+      }
+    },
+    [refresh]
+  );
 
-  const logout = useCallback(() => {
-    setState((prev) => ({ ...prev, user: null }));
+  const login: PortalContextValue["login"] = useCallback(
+    async (email, password, role) => {
+      try {
+        await api("/api/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password, role }),
+        });
+        await refresh();
+        return null;
+      } catch (e) {
+        return e instanceof Error ? e.message : "Login failed";
+      }
+    },
+    [refresh]
+  );
+
+  const logout = useCallback(async () => {
+    await api("/api/auth/logout", { method: "POST" });
+    setUser(null);
+    setEnrollments([]);
+    setApplications([]);
+    setMentorships([]);
+    setNotifications([]);
+    setResume(defaultResume);
+    setAssessment(null);
+    setVentures([]);
+    window.location.assign("/");
   }, []);
 
   const enrollCourse = useCallback(
-    (technology: string, module: string) => {
-      const courseKey = `${technology}::${module}`;
-      setState((prev) => {
-        if (prev.enrollments.some((e) => e.courseKey === courseKey)) return prev;
-        return {
-          ...prev,
-          enrollments: [
-            {
-              id: uid("e"),
-              courseKey,
-              technology,
-              module,
-              enrolledAt: new Date().toISOString(),
-              status: "enrolled",
-            },
-            ...prev.enrollments,
-          ],
-          notifications: [
-            {
-              id: uid("n"),
-              title: "Course enrolled",
-              body: `${technology} — ${module} added to your Learning Hub.`,
-              createdAt: new Date().toISOString(),
-              read: false,
-            },
-            ...prev.notifications,
-          ],
-        };
+    async (technology: string, module: string) => {
+      await api("/api/enrollments", {
+        method: "POST",
+        body: JSON.stringify({ technology, module }),
       });
+      await refresh();
     },
-    []
+    [refresh]
   );
 
-  const applyJob = useCallback((jobTitle: string, company: string) => {
-    setState((prev) => {
-      if (
-        prev.applications.some(
-          (a) => a.jobTitle === jobTitle && a.company === company
-        )
-      ) {
-        return prev;
+  const applyJob = useCallback(
+    async (jobId: string) => {
+      await api("/api/jobs", {
+        method: "POST",
+        body: JSON.stringify({ jobId }),
+      });
+      await refresh();
+    },
+    [refresh]
+  );
+
+  const postJob: PortalContextValue["postJob"] = useCallback(
+    async (input) => {
+      try {
+        await api("/api/jobs", {
+          method: "POST",
+          body: JSON.stringify({ action: "post", ...input }),
+        });
+        await refresh();
+        return null;
+      } catch (e) {
+        return e instanceof Error ? e.message : "Failed to post job";
       }
-      return {
-        ...prev,
-        applications: [
-          {
-            id: uid("j"),
-            jobTitle,
-            company,
-            appliedAt: new Date().toISOString(),
-            status: "submitted",
-          },
-          ...prev.applications,
-        ],
-        notifications: [
-          {
-            id: uid("n"),
-            title: "Application submitted",
-            body: `${jobTitle} at ${company}`,
-            createdAt: new Date().toISOString(),
-            read: false,
-          },
-          ...prev.notifications,
-        ],
-      };
-    });
-  }, []);
+    },
+    [refresh]
+  );
 
-  const requestMentor = useCallback((mentorName: string, focus: string) => {
-    setState((prev) => {
-      if (prev.mentorships.some((m) => m.mentorName === mentorName)) return prev;
-      return {
-        ...prev,
-        mentorships: [
-          {
-            id: uid("m"),
-            mentorName,
-            focus,
-            requestedAt: new Date().toISOString(),
-            status: "pending",
-          },
-          ...prev.mentorships,
-        ],
-        notifications: [
-          {
-            id: uid("n"),
-            title: "Mentorship requested",
-            body: `Waiting for match with ${mentorName}.`,
-            createdAt: new Date().toISOString(),
-            read: false,
-          },
-          ...prev.notifications,
-        ],
-      };
-    });
-  }, []);
+  const requestMentor = useCallback(
+    async (mentorName: string, focus: string) => {
+      await api("/api/mentorships", {
+        method: "POST",
+        body: JSON.stringify({ mentorName, focus }),
+      });
+      await refresh();
+    },
+    [refresh]
+  );
 
-  const saveResume = useCallback((resume: ResumeDraft) => {
-    setState((prev) => ({
-      ...prev,
-      resume,
-      notifications: [
-        {
-          id: uid("n"),
-          title: "Resume saved",
-          body: "Your TASK resume draft is updated.",
-          createdAt: new Date().toISOString(),
-          read: false,
-        },
-        ...prev.notifications,
-      ],
-    }));
-  }, []);
+  const saveResume = useCallback(
+    async (draft: ResumeDraft) => {
+      await api("/api/resume", {
+        method: "POST",
+        body: JSON.stringify(draft),
+      });
+      await refresh();
+    },
+    [refresh]
+  );
 
-  const saveAssessment = useCallback((assessment: SkillAssessment) => {
-    setState((prev) => ({
-      ...prev,
-      assessment,
-      notifications: [
-        {
-          id: uid("n"),
-          title: "Skill gap updated",
-          body: `Employability score ${assessment.score} for ${assessment.role}.`,
-          createdAt: new Date().toISOString(),
-          read: false,
-        },
-        ...prev.notifications,
-      ],
-    }));
-  }, []);
+  const saveAssessment = useCallback(
+    async (next: SkillAssessment) => {
+      await api("/api/assessment", {
+        method: "POST",
+        body: JSON.stringify(next),
+      });
+      await refresh();
+    },
+    [refresh]
+  );
 
-  const markNotificationsRead = useCallback(() => {
-    setState((prev) => ({
-      ...prev,
-      notifications: prev.notifications.map((n) => ({ ...n, read: true })),
-    }));
-  }, []);
+  const submitVenture = useCallback(
+    async (program: string, title: string) => {
+      await api("/api/ventures", {
+        method: "POST",
+        body: JSON.stringify({ program, title }),
+      });
+      await refresh();
+    },
+    [refresh]
+  );
 
-  const setLanguage = useCallback((language: "EN" | "TE") => {
-    setState((prev) => ({ ...prev, language }));
-  }, []);
+  const markNotificationsRead = useCallback(async () => {
+    await api("/api/notifications", { method: "POST" });
+    await refresh();
+  }, [refresh]);
 
   const unreadCount = useMemo(
-    () => state.notifications.filter((n) => !n.read).length,
-    [state.notifications]
+    () => notifications.filter((n) => !n.read).length,
+    [notifications]
   );
 
   const value = useMemo<PortalContextValue>(
     () => ({
-      ...state,
       hydrated,
+      user,
+      enrollments,
+      applications,
+      mentorships,
+      notifications,
+      resume,
+      assessment,
+      ventures,
+      jobs,
+      language,
+      unreadCount,
+      refresh,
       register,
       login,
       logout,
       enrollCourse,
       applyJob,
+      postJob,
       requestMentor,
       saveResume,
       saveAssessment,
+      submitVenture,
       markNotificationsRead,
-      pushNotification,
       setLanguage,
-      unreadCount,
+      t,
     }),
     [
-      state,
       hydrated,
+      user,
+      enrollments,
+      applications,
+      mentorships,
+      notifications,
+      resume,
+      assessment,
+      ventures,
+      jobs,
+      language,
+      unreadCount,
+      refresh,
       register,
       login,
       logout,
       enrollCourse,
       applyJob,
+      postJob,
       requestMentor,
       saveResume,
       saveAssessment,
+      submitVenture,
       markNotificationsRead,
-      pushNotification,
       setLanguage,
-      unreadCount,
+      t,
     ]
   );
 

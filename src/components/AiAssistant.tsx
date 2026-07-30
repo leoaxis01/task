@@ -6,32 +6,12 @@ import { usePortal } from "@/lib/portal-store";
 
 type ChatMsg = { role: "bot" | "user"; text: string };
 
-function replyFor(input: string, name?: string) {
-  const q = input.toLowerCase();
-  if (q.includes("register") || q.includes("sign"))
-    return "Use Register to create your TASK account, then open My Dashboard for enrollments, jobs, and mentorship.";
-  if (q.includes("course") || q.includes("engineering") || q.includes("java") || q.includes("python"))
-    return "Browse Skill Offerings → Engineering for AutoCAD, Java, Python, CISCO and partner modules. Click Enrol to add a course to your Learning Hub.";
-  if (q.includes("job") || q.includes("internship") || q.includes("placement"))
-    return "Open Digital Job Centres to view AI-matched roles. Apply from a listing — applications appear on your dashboard.";
-  if (q.includes("mentor"))
-    return "Visit Mentorship, pick a mentor, and request a match. Pending requests sync to My Dashboard.";
-  if (q.includes("skill") || q.includes("score") || q.includes("gap"))
-    return "Use Skill Gap Engine to set your target role and focus. Your employability score is saved to your profile.";
-  if (q.includes("resume"))
-    return "Open Resume Builder to draft headline, skills, education and projects. Saved drafts stay in this browser.";
-  if (q.includes("telugu") || q.includes("language"))
-    return "Toggle English / తెలుగు from the top bar. More Telugu content packs can be connected to the CMS later.";
-  if (q.includes("hello") || q.includes("hi") || q.includes("namaste"))
-    return `Namaste${name ? `, ${name}` : ""}! I am TASK AI Counsellor. Ask about courses, jobs, mentorship, or skill gaps.`;
-  return "I can help with courses, mentorship, jobs, skill-gap scoring, resume builder, and dashboard actions. Try: “Show engineering courses” or “How do I apply for internships?”";
-}
-
 export function AiAssistant() {
   const { user } = usePortal();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [msgs, setMsgs] = useState<ChatMsg[]>([]);
+  const [busy, setBusy] = useState(false);
 
   const greeting = useMemo(
     () =>
@@ -45,16 +25,34 @@ export function AiAssistant() {
     }
   }, [open, msgs.length, greeting]);
 
-  function send() {
+  async function send() {
     const text = input.trim();
-    if (!text) return;
-    const next: ChatMsg[] = [
-      ...msgs,
-      { role: "user", text },
-      { role: "bot", text: replyFor(text, user?.name.split(" ")[0]) },
-    ];
-    setMsgs(next);
+    if (!text || busy) return;
+    setBusy(true);
+    setMsgs((prev) => [...prev, { role: "user", text }]);
     setInput("");
+    try {
+      const res = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          name: user?.name.split(" ")[0],
+        }),
+      });
+      const data = await res.json();
+      setMsgs((prev) => [
+        ...prev,
+        { role: "bot", text: data.reply || "Please try again." },
+      ]);
+    } catch {
+      setMsgs((prev) => [
+        ...prev,
+        { role: "bot", text: "Counsellor temporarily unavailable." },
+      ]);
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -77,7 +75,7 @@ export function AiAssistant() {
                 className={`max-w-[90%] rounded-md px-3 py-2 text-sm ${
                   m.role === "user"
                     ? "ml-auto bg-brand text-white"
-                    : "bg-white text-ink border border-line"
+                    : "border border-line bg-white text-ink"
                 }`}
               >
                 {m.text}
@@ -92,7 +90,7 @@ export function AiAssistant() {
               placeholder="Ask about courses, jobs..."
               className="flex-1 border border-line bg-mist px-2 py-2 text-sm outline-none"
             />
-            <button type="button" className="btn-primary px-3" onClick={send}>
+            <button type="button" className="btn-primary px-3" onClick={send} disabled={busy}>
               <Send size={16} />
             </button>
           </div>

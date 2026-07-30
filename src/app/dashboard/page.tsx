@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { FadeIn } from "@/components/FadeIn";
 import { PageHero } from "@/components/PageHero";
 import { usePortal } from "@/lib/portal-store";
@@ -18,6 +18,7 @@ export default function DashboardPage() {
     assessment,
     resume,
     notifications,
+    ventures,
   } = usePortal();
 
   useEffect(() => {
@@ -37,19 +38,20 @@ export default function DashboardPage() {
       <PageHero
         eyebrow="My Dashboard"
         title={`Welcome, ${user.name}`}
-        description={`${user.role} · ${user.stream} · ${user.district}. Track enrollments, applications, mentorship, and your employability score in one place.`}
+        description={`${user.role} · ${user.stream} · ${user.district}. Server-synced enrollments, applications, mentorship, ventures, and employability score.`}
         primaryHref="/courses/engineering"
         primaryLabel="Enrol in a course"
-        secondaryHref="/jobs"
-        secondaryLabel="Browse jobs"
+        secondaryHref={user.role === "Employer" ? "/employers" : "/jobs"}
+        secondaryLabel={user.role === "Employer" ? "Employer hub" : "Browse jobs"}
       />
 
       <section className="section-pad">
-        <div className="container-page grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="container-page grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           {[
             { label: "Courses enrolled", value: enrollments.length, href: "/learning" },
             { label: "Job applications", value: applications.length, href: "/jobs" },
             { label: "Mentorship requests", value: mentorships.length, href: "/mentorship" },
+            { label: "Ventures", value: ventures.length, href: "/entrepreneurship" },
             {
               label: "Employability score",
               value: assessment?.score ?? "—",
@@ -78,9 +80,7 @@ export default function DashboardPage() {
                 </Link>
               </div>
               {enrollments.length === 0 ? (
-                <p className="mt-4 text-sm text-ink/60">
-                  No enrollments yet. Open the engineering catalogue and click Enrol.
-                </p>
+                <p className="mt-4 text-sm text-ink/60">No enrollments yet.</p>
               ) : (
                 <ul className="mt-4 space-y-3">
                   {enrollments.map((e) => (
@@ -102,14 +102,12 @@ export default function DashboardPage() {
             <div className="border border-line bg-white p-5">
               <div className="flex items-center justify-between">
                 <h2 className="font-display text-2xl">Applications</h2>
-                <Link href="/jobs" className="text-sm font-semibold text-brand">
-                  Job centres
+                <Link href="/job-fair" className="text-sm font-semibold text-brand">
+                  Job fair
                 </Link>
               </div>
               {applications.length === 0 ? (
-                <p className="mt-4 text-sm text-ink/60">
-                  No applications yet. Apply from Digital Job Centres.
-                </p>
+                <p className="mt-4 text-sm text-ink/60">No applications yet.</p>
               ) : (
                 <ul className="mt-4 space-y-3">
                   {applications.map((a) => (
@@ -127,39 +125,47 @@ export default function DashboardPage() {
 
           <FadeIn delay={0.08}>
             <div className="border border-line bg-white p-5">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-2xl">Mentorship</h2>
-                <Link href="/mentorship" className="text-sm font-semibold text-brand">
-                  Find mentors
-                </Link>
+              <h2 className="font-display text-2xl">Mentorship & ventures</h2>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-brand">
+                    Mentors
+                  </p>
+                  {mentorships.length === 0 ? (
+                    <p className="mt-2 text-sm text-ink/60">None yet</p>
+                  ) : (
+                    <ul className="mt-2 space-y-2 text-sm">
+                      {mentorships.map((m) => (
+                        <li key={m.id} className="border border-line bg-mist px-2 py-1">
+                          {m.mentorName} · {m.status}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-brand">
+                    Ventures
+                  </p>
+                  {ventures.length === 0 ? (
+                    <p className="mt-2 text-sm text-ink/60">None yet</p>
+                  ) : (
+                    <ul className="mt-2 space-y-2 text-sm">
+                      {ventures.map((v) => (
+                        <li key={v.id} className="border border-line bg-mist px-2 py-1">
+                          {v.title}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
-              {mentorships.length === 0 ? (
-                <p className="mt-4 text-sm text-ink/60">
-                  Request a mentor match to get career guidance sessions.
-                </p>
-              ) : (
-                <ul className="mt-4 space-y-3">
-                  {mentorships.map((m) => (
-                    <li key={m.id} className="border border-line bg-mist px-3 py-2 text-sm">
-                      <p className="font-medium">{m.mentorName}</p>
-                      <p className="text-ink/55">
-                        {m.focus} · {m.status}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </div>
           </FadeIn>
 
           <FadeIn delay={0.1}>
             <div className="border border-line bg-white p-5">
-              <div className="flex items-center justify-between">
-                <h2 className="font-display text-2xl">Profile toolkit</h2>
-                <Link href="/resume" className="text-sm font-semibold text-brand">
-                  Resume builder
-                </Link>
-              </div>
+              <h2 className="font-display text-2xl">Profile toolkit</h2>
               <ul className="mt-4 space-y-2 text-sm text-ink/70">
                 <li>
                   Email: <span className="font-medium text-ink">{user.email}</span>
@@ -168,21 +174,22 @@ export default function DashboardPage() {
                   District: <span className="font-medium text-ink">{user.district}</span>
                 </li>
                 <li>
-                  Resume headline:{" "}
+                  Resume:{" "}
                   <span className="font-medium text-ink">
                     {resume.headline || "Not set"}
                   </span>
                 </li>
-                <li>
-                  Latest alerts: {notifications.filter((n) => !n.read).length} unread
-                </li>
+                <li>Alerts: {notifications.filter((n) => !n.read).length} unread</li>
               </ul>
               <div className="mt-5 flex flex-wrap gap-2">
+                <Link href="/resume" className="btn-secondary">
+                  Resume builder
+                </Link>
                 <Link href="/skill-gap" className="btn-secondary">
                   Update skill score
                 </Link>
-                <Link href="/entrepreneurship" className="btn-secondary">
-                  Startup track
+                <Link href="/command-centre" className="btn-secondary">
+                  Command centre
                 </Link>
               </div>
             </div>

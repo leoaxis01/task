@@ -2,10 +2,12 @@ export const navItems = [
   { href: "/courses", label: "Skill Offerings" },
   { href: "/mentorship", label: "Mentorship" },
   { href: "/jobs", label: "Job Centres" },
+  { href: "/job-fair", label: "Job Fair" },
   { href: "/skill-gap", label: "Skill Gap" },
   { href: "/learning", label: "Learning Hub" },
   { href: "/command-centre", label: "Command Centre" },
   { href: "/entrepreneurship", label: "Entrepreneurship" },
+  { href: "/colleges", label: "Colleges" },
 ];
 
 export const ecosystemModules = [

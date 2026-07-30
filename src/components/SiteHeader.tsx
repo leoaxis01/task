@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import {
   Bell,
@@ -16,7 +16,6 @@ import { usePortal } from "@/lib/portal-store";
 
 export function SiteHeader() {
   const pathname = usePathname();
-  const router = useRouter();
   const {
     user,
     logout,
@@ -26,22 +25,44 @@ export function SiteHeader() {
     unreadCount,
     markNotificationsRead,
     hydrated,
+    t,
   } = usePortal();
   const [open, setOpen] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
   const [query, setQuery] = useState("");
 
+  const labelMap: Record<string, string> = {
+    "/courses": t("skillOfferings"),
+    "/mentorship": t("mentorship"),
+    "/jobs": t("jobCentres"),
+    "/skill-gap": t("skillGap"),
+    "/learning": t("learningHub"),
+    "/command-centre": t("commandCentre"),
+    "/entrepreneurship": t("entrepreneurship"),
+    "/employers": t("employerHub"),
+    "/job-fair": t("jobFair"),
+    "/colleges": t("colleges"),
+  };
+
   const links = useMemo(() => {
-    const base = [...navItems];
-    if (user) base.unshift({ href: "/dashboard", label: "My Dashboard" });
+    const base = navItems.map((item) => ({
+      ...item,
+      label: labelMap[item.href] || item.label,
+    }));
+    if (user) {
+      base.unshift({ href: "/dashboard", label: t("myDashboard") });
+      if (user.role === "Employer" || user.role === "Government Admin") {
+        base.push({ href: "/employers", label: t("employerHub") });
+      }
+    }
     return base;
-  }, [user]);
+  }, [user, language, t]);
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
     const q = query.trim();
     if (!q) return;
-    router.push(`/search?q=${encodeURIComponent(q)}`);
+    window.location.href = `/search?q=${encodeURIComponent(q)}`;
     setOpen(false);
   }
 
@@ -55,9 +76,6 @@ export function SiteHeader() {
           <div className="flex items-center gap-3">
             <a className="hover:underline" href="tel:04035485290">
               040-35485290
-            </a>
-            <a className="hover:underline" href="mailto:enquiry_task@telangana.gov.in">
-              enquiry_task@telangana.gov.in
             </a>
             <div className="flex overflow-hidden rounded border border-white/25">
               {(["EN", "TE"] as const).map((code) => (
@@ -85,13 +103,11 @@ export function SiteHeader() {
             <span className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-accent" />
           </span>
           <span className="min-w-0">
-            <span className="block font-display text-xl leading-none tracking-tight text-brand-deep transition group-hover:text-brand sm:text-2xl">
+            <span className="block font-display text-xl leading-none tracking-tight text-brand-deep sm:text-2xl">
               TASK
             </span>
             <span className="block truncate text-[11px] text-ink/60 sm:text-xs">
-              {language === "TE"
-                ? "తెలంగాణ నైపుణ్య మరియు జ్ఞాన అకాడమీ"
-                : "Telangana Academy for Skill and Knowledge"}
+              {t("brandSub")}
             </span>
           </span>
         </Link>
@@ -109,8 +125,8 @@ export function SiteHeader() {
           />
         </form>
 
-        <nav className="hidden items-center gap-3 2xl:gap-4 xl:flex">
-          {links.map((item) => {
+        <nav className="hidden items-center gap-3 xl:flex 2xl:gap-4">
+          {links.slice(0, 8).map((item) => {
             const active =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
@@ -174,25 +190,18 @@ export function SiteHeader() {
                 <LayoutDashboard size={16} />
                 {user.name.split(" ")[0]}
               </Link>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={() => {
-                  logout();
-                  window.location.assign("/");
-                }}
-              >
+              <button type="button" className="btn-primary" onClick={() => logout()}>
                 <LogOut size={16} />
-                Sign out
+                {t("signOut")}
               </button>
             </>
           ) : (
             <>
               <Link href="/login" className="btn-secondary">
-                Sign In
+                {t("signIn")}
               </Link>
               <Link href="/register" className="btn-primary">
-                Register
+                {t("register")}
               </Link>
             </>
           )}
@@ -245,12 +254,11 @@ export function SiteHeader() {
                   type="button"
                   className="btn-primary flex-1"
                   onClick={() => {
-                    logout();
                     setOpen(false);
-                    window.location.assign("/");
+                    logout();
                   }}
                 >
-                  Sign out
+                  {t("signOut")}
                 </button>
               ) : (
                 <>
@@ -259,14 +267,14 @@ export function SiteHeader() {
                     className="btn-secondary flex-1"
                     onClick={() => setOpen(false)}
                   >
-                    Sign In
+                    {t("signIn")}
                   </Link>
                   <Link
                     href="/register"
                     className="btn-primary flex-1"
                     onClick={() => setOpen(false)}
                   >
-                    Register
+                    {t("register")}
                   </Link>
                 </>
               )}

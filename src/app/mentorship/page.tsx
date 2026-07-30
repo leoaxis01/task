@@ -31,9 +31,10 @@ export default function MentorshipPage() {
       router.push("/login?next=/mentorship");
       return;
     }
-    requestMentor(name, focus);
-    setFlash(`Mentorship requested with ${name}`);
-    setTimeout(() => setFlash(""), 2500);
+    void requestMentor(name, focus).then(() => {
+      setFlash(`Mentorship requested with ${name}`);
+      setTimeout(() => setFlash(""), 2500);
+    });
   }
 
   function requested(name: string) {

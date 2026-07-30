@@ -31,9 +31,10 @@ export default function LearningPage() {
       router.push("/login?next=/learning");
       return;
     }
-    enrollCourse("Learning Hub", title);
-    setFlash(`Enrolled in ${title}`);
-    setTimeout(() => setFlash(""), 2200);
+    void enrollCourse("Learning Hub", title).then(() => {
+      setFlash(`Enrolled in ${title}`);
+      setTimeout(() => setFlash(""), 2200);
+    });
   }
 
   function enrolled(title: string) {

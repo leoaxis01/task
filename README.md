@@ -2,41 +2,63 @@
 
 Fully interactive government portal for **Telangana Academy for Skill and Knowledge (TASK)** — Department of ITE&C, Government of Telangana.
 
-## Active features
+## What’s included (proposal coverage)
 
-- **Accounts** — register / sign-in with role-based session (persisted in browser)
-- **My Dashboard** — enrollments, applications, mentorship, score, profile toolkit
-- **Engineering catalogue** — search, filter, enrol courses & partner modules
-- **Job Centres** — search/filter roles and apply (tracked on dashboard)
-- **Mentorship** — request mentor matches
-- **Skill Gap Engine** — interactive score saved to profile
-- **Learning Hub** — enrol learning tracks; continue learning list
-- **Resume Builder** — draft + live preview
-- **Entrepreneurship** — submit ventures to selected tracks
-- **Command Centre** — district filter + live session counters
-- **Global search** — courses, jobs, mentors, learning, startups
-- **AI Counsellor** — floating chat assistant
-- **Notifications** — bell feed for portal actions
-- **EN / తెలుగు** language chrome toggle
+| Proposal module | Status |
+|---|---|
+| Portal modernization / responsive UI | Done |
+| Skill offerings + engineering catalogue | Done |
+| Mentorship ecosystem | Done |
+| Digital Job Centres + ATS apply flow | Done |
+| Virtual Job Fair | Done |
+| Employer Hub (post jobs) | Done |
+| AI Skill Gap Engine | Done |
+| Learning Hub | Done |
+| Command & Control Centre (live API stats) | Done |
+| Innovation & Entrepreneurship | Done |
+| Resume builder | Done |
+| Registered colleges / coordinator access | Done |
+| EN / తెలుగు chrome | Done |
+| AI counsellor chatbot | Done |
+| Server auth (JWT cookie) + JSON datastore | Done |
 
 ## Stack
 
-Next.js (App Router) · React · TypeScript · Tailwind CSS · Framer Motion
+- Frontend: Next.js App Router, React, TypeScript, Tailwind, Framer Motion
+- Backend: Next.js Route Handlers (Node)
+- Auth: JWT httpOnly cookies + bcrypt password hashes
+- Data: durable JSON store in `data/portal-db.json`
 
-## Develop
+## Run locally
 
 ```bash
 npm install
-npm run dev
+npm run build
+npm run start -- -H 0.0.0.0 -p 3001
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open http://localhost:3001
 
-## Build
+### Dev mode
 
 ```bash
-npm run build
-npm start
+npm run dev -- -p 3001
 ```
 
-Session data is stored in `localStorage` under `task-portal-v1` for this demo portal.
+### E2E
+
+```bash
+npm run build && npm run start -- -p 3001
+PORTAL_URL=http://localhost:3001 node scripts/e2e-portal.cjs
+```
+
+### Docker
+
+```bash
+docker compose up --build
+```
+
+## Demo accounts
+
+Register any email (password default `task2026`) as Student, Employer, Mentor, etc.
+All enrollments, applications, mentorship, resumes, and ventures persist on the server.

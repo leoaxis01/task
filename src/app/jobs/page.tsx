@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PageHero } from "@/components/PageHero";
 import { FadeIn } from "@/components/FadeIn";
-import { jobs } from "@/data/portal";
 import { usePortal } from "@/lib/portal-store";
 
 const features = [
@@ -15,7 +14,6 @@ const features = [
   "Employer dashboards",
   "Virtual job fairs",
   "Resume builder",
-  "Video profile creation",
   "Applicant tracking (ATS)",
   "Government scheme integration",
   "Gig & freelance opportunities",
@@ -23,10 +21,11 @@ const features = [
 
 export default function JobsPage() {
   const router = useRouter();
-  const { user, applications, applyJob } = usePortal();
+  const { user, jobs, applications, applyJob } = usePortal();
   const [type, setType] = useState("All");
   const [query, setQuery] = useState("");
   const [flash, setFlash] = useState("");
+  const [busy, setBusy] = useState("");
 
   const filtered = useMemo(() => {
     return jobs.filter((job) => {
@@ -35,20 +34,27 @@ export default function JobsPage() {
       const matchesQuery = !query || hay.includes(query.toLowerCase());
       return matchesType && matchesQuery;
     });
-  }, [type, query]);
+  }, [jobs, type, query]);
 
-  function onApply(title: string, company: string) {
+  async function onApply(jobId: string, title: string) {
     if (!user) {
       router.push("/login?next=/jobs");
       return;
     }
-    applyJob(title, company);
-    setFlash(`Applied: ${title}`);
-    setTimeout(() => setFlash(""), 2500);
+    setBusy(jobId);
+    try {
+      await applyJob(jobId);
+      setFlash(`Applied: ${title}`);
+      setTimeout(() => setFlash(""), 2500);
+    } finally {
+      setBusy("");
+    }
   }
 
-  function applied(title: string, company: string) {
-    return applications.some((a) => a.jobTitle === title && a.company === company);
+  function applied(jobId: string, title: string, company: string) {
+    return applications.some(
+      (a) => a.jobId === jobId || (a.jobTitle === title && a.company === company)
+    );
   }
 
   return (
@@ -56,11 +62,11 @@ export default function JobsPage() {
       <PageHero
         eyebrow="Module 5.2 · Telangana Digital Job Centres"
         title="Integrated employment exchange for youth & employers"
-        description="Match talent to IT, manufacturing, pharma, startups, MSMEs, and global employers — apply in one click and track status on your dashboard."
+        description="Server-backed job matching across IT, manufacturing, pharma, startups, and MSMEs — apply once and track on your dashboard."
         primaryHref="/resume"
         primaryLabel="Build resume"
-        secondaryHref="/dashboard"
-        secondaryLabel="My applications"
+        secondaryHref="/job-fair"
+        secondaryLabel="Open virtual job fair"
       />
 
       <section className="section-pad">
@@ -109,9 +115,9 @@ export default function JobsPage() {
 
           <div className="mt-8 grid gap-4 lg:grid-cols-2">
             {filtered.map((job, i) => {
-              const done = applied(job.title, job.company);
+              const done = applied(job.id, job.title, job.company);
               return (
-                <FadeIn key={job.title} delay={i * 0.03}>
+                <FadeIn key={job.id} delay={i * 0.03}>
                   <article className="border border-line bg-white p-5">
                     <div className="flex items-start justify-between gap-3">
                       <div>
@@ -123,9 +129,12 @@ export default function JobsPage() {
                         </p>
                       </div>
                       <span className="shrink-0 rounded bg-brand-soft px-2 py-1 text-xs font-semibold text-brand-deep">
-                        {job.match}% match
+                        {job.match ?? 70}% match
                       </span>
                     </div>
+                    {job.description ? (
+                      <p className="mt-3 text-sm text-ink/65">{job.description}</p>
+                    ) : null}
                     <div className="mt-4 flex flex-wrap gap-2">
                       <span className="text-xs font-semibold uppercase tracking-wider text-brand">
                         {job.type}
@@ -142,11 +151,11 @@ export default function JobsPage() {
                     <div className="mt-5 flex gap-2">
                       <button
                         type="button"
-                        disabled={done}
-                        onClick={() => onApply(job.title, job.company)}
+                        disabled={done || busy === job.id}
+                        onClick={() => onApply(job.id, job.title)}
                         className={done ? "btn bg-brand-soft text-brand-deep" : "btn-primary"}
                       >
-                        {done ? "Applied" : "Apply now"}
+                        {done ? "Applied" : busy === job.id ? "Applying..." : "Apply now"}
                       </button>
                       <Link href="/skill-gap" className="btn-secondary">
                         Improve match

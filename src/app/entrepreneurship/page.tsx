@@ -10,23 +10,26 @@ import { usePortal } from "@/lib/portal-store";
 
 export default function EntrepreneurshipPage() {
   const router = useRouter();
-  const { user, pushNotification } = usePortal();
+  const { user, ventures, submitVenture } = usePortal();
   const [venture, setVenture] = useState("");
   const [program, setProgram] = useState(startupPrograms[0].title);
   const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
 
-  function onSubmit(e: FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (!user) {
       router.push("/login?next=/entrepreneurship");
       return;
     }
-    pushNotification(
-      "Startup submission received",
-      `${venture} added to ${program}.`
-    );
-    setSubmitted(true);
-    setVenture("");
+    try {
+      await submitVenture(program, venture);
+      setSubmitted(true);
+      setVenture("");
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Submission failed");
+    }
   }
 
   return (
@@ -62,7 +65,7 @@ export default function EntrepreneurshipPage() {
           ))}
         </div>
 
-        <div className="container-page mt-10 max-w-xl">
+        <div className="container-page mt-10 grid gap-6 lg:grid-cols-[1fr_1fr]">
           <form onSubmit={onSubmit} className="border border-line bg-white p-6">
             <h3 className="font-display text-2xl">Submit a venture</h3>
             <label className="mt-4 block text-sm font-medium">
@@ -98,7 +101,24 @@ export default function EntrepreneurshipPage() {
                 .
               </p>
             ) : null}
+            {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
           </form>
+
+          <div className="border border-line bg-sand p-6">
+            <h3 className="font-display text-2xl">Your submissions</h3>
+            {ventures.length === 0 ? (
+              <p className="mt-3 text-sm text-ink/65">No ventures submitted yet.</p>
+            ) : (
+              <ul className="mt-4 space-y-2 text-sm">
+                {ventures.map((v) => (
+                  <li key={v.id} className="border border-line bg-white px-3 py-2">
+                    <p className="font-medium">{v.title}</p>
+                    <p className="text-ink/55">{v.program}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </section>
     </>

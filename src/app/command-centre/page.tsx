@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PageHero } from "@/components/PageHero";
 import { FadeIn } from "@/components/FadeIn";
@@ -18,28 +18,60 @@ const dashboards = [
   "Gender and rural participation tracking",
 ];
 
+type LiveStats = {
+  totals: {
+    students: number;
+    employers: number;
+    mentors: number;
+    enrollments: number;
+    applications: number;
+    mentorships: number;
+    openJobs: number;
+    ventures: number;
+  };
+};
+
 export default function CommandCentrePage() {
   const { user, enrollments, applications, mentorships } = usePortal();
   const [district, setDistrict] = useState("All districts");
+  const [live, setLive] = useState<LiveStats | null>(null);
+
+  useEffect(() => {
+    fetch("/api/stats")
+      .then((r) => r.json())
+      .then(setLive)
+      .catch(() => undefined);
+  }, [enrollments.length, applications.length, mentorships.length]);
 
   const filtered = useMemo(() => {
     if (district === "All districts") return districtHeat;
     return districtHeat.filter((d) => d.district === district);
   }, [district]);
 
-  const live = [
+  const sessionStats = [
     { label: "Portal enrollments (you)", value: String(enrollments.length) },
     { label: "Applications (you)", value: String(applications.length) },
     { label: "Mentorship (you)", value: String(mentorships.length) },
     { label: "Signed-in role", value: user?.role ?? "Guest" },
   ];
 
+  const systemStats = live
+    ? [
+        { label: "Students on platform", value: String(live.totals.students) },
+        { label: "Open jobs", value: String(live.totals.openJobs) },
+        { label: "Total enrollments", value: String(live.totals.enrollments) },
+        { label: "Applications filed", value: String(live.totals.applications) },
+        { label: "Mentorship requests", value: String(live.totals.mentorships) },
+        { label: "Ventures submitted", value: String(live.totals.ventures) },
+      ]
+    : commandStats.map((s) => ({ label: s.label, value: s.value }));
+
   return (
     <>
       <PageHero
         eyebrow="Module 5.4 · Command & Control Centre"
         title="Centralized governance and monitoring for TASK 2.0"
-        description="Real-time policy insights with district filters. Live counters also reflect your active portal session activity."
+        description="Live platform counters from the TASK API plus district placement intelligence for policy monitoring."
         primaryHref="/skill-gap"
         primaryLabel="Open skill intelligence"
         secondaryHref="/jobs"
@@ -50,7 +82,7 @@ export default function CommandCentrePage() {
         <div className="container-page">
           <FadeIn>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {commandStats.map((stat) => (
+              {systemStats.map((stat) => (
                 <div key={stat.label} className="border border-line bg-white p-5">
                   <p className="stat-num">{stat.value}</p>
                   <p className="mt-1 text-sm text-ink/65">{stat.label}</p>
@@ -61,7 +93,7 @@ export default function CommandCentrePage() {
 
           <FadeIn className="mt-8">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              {live.map((stat) => (
+              {sessionStats.map((stat) => (
                 <div key={stat.label} className="border border-line bg-sand p-4">
                   <p className="font-display text-2xl text-brand-deep">{stat.value}</p>
                   <p className="mt-1 text-xs text-ink/60">{stat.label}</p>
@@ -106,10 +138,6 @@ export default function CommandCentrePage() {
                     ))}
                   </select>
                 </div>
-                <p className="mt-2 text-sm text-white/70">
-                  Interactive demo analytics — production connects to Power BI /
-                  secure APIs.
-                </p>
                 <div className="mt-6 space-y-4">
                   {filtered.map((d) => {
                     const conversion = Math.round((d.supply / d.demand) * 100);

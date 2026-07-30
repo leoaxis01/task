@@ -28,12 +28,12 @@ export function EngineeringCatalogue() {
     });
   }, [query, tech]);
 
-  function onEnrol(technology: string, module: string) {
+  async function onEnrol(technology: string, module: string) {
     if (!user) {
       router.push("/login?next=/courses/engineering");
       return;
     }
-    enrollCourse(technology, module);
+    await enrollCourse(technology, module);
     setFlash(`Enrolled: ${technology} — ${module}`);
     setTimeout(() => setFlash(""), 2500);
   }

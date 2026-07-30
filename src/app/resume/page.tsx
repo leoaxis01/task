@@ -22,7 +22,7 @@ export default function ResumePage() {
       router.push("/login?next=/resume");
       return;
     }
-    saveResume({
+    void saveResume({
       headline,
       summary,
       skills: skills
@@ -31,9 +31,10 @@ export default function ResumePage() {
         .filter(Boolean),
       education,
       projects,
+    }).then(() => {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2200);
     });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2200);
   }
 
   return (

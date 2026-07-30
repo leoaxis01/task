@@ -21,14 +21,15 @@ export default function SkillGapPage() {
   }, [role, focus]);
 
   function onSave() {
-    saveAssessment({
+    void saveAssessment({
       role,
       focus,
       score,
       updatedAt: new Date().toISOString(),
+    }).then(() => {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2200);
     });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2200);
   }
 
   return (
