@@ -1,11 +1,11 @@
-import type { Metadata } from "next";
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { PageHero } from "@/components/PageHero";
 import { FadeIn } from "@/components/FadeIn";
 import { commandStats, districtHeat } from "@/data/portal";
-
-export const metadata: Metadata = {
-  title: "Command & Control Centre",
-};
+import { usePortal } from "@/lib/portal-store";
 
 const dashboards = [
   "District-wise employment statistics",
@@ -19,12 +19,27 @@ const dashboards = [
 ];
 
 export default function CommandCentrePage() {
+  const { user, enrollments, applications, mentorships } = usePortal();
+  const [district, setDistrict] = useState("All districts");
+
+  const filtered = useMemo(() => {
+    if (district === "All districts") return districtHeat;
+    return districtHeat.filter((d) => d.district === district);
+  }, [district]);
+
+  const live = [
+    { label: "Portal enrollments (you)", value: String(enrollments.length) },
+    { label: "Applications (you)", value: String(applications.length) },
+    { label: "Mentorship (you)", value: String(mentorships.length) },
+    { label: "Signed-in role", value: user?.role ?? "Guest" },
+  ];
+
   return (
     <>
       <PageHero
         eyebrow="Module 5.4 · Command & Control Centre"
         title="Centralized governance and monitoring for TASK 2.0"
-        description="Real-time policy insights, transparent monitoring, and faster intervention planning across Telangana’s skill and employment ecosystem."
+        description="Real-time policy insights with district filters. Live counters also reflect your active portal session activity."
         primaryHref="/skill-gap"
         primaryLabel="Open skill intelligence"
         secondaryHref="/jobs"
@@ -36,12 +51,20 @@ export default function CommandCentrePage() {
           <FadeIn>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {commandStats.map((stat) => (
-                <div
-                  key={stat.label}
-                  className="border border-line bg-white p-5"
-                >
+                <div key={stat.label} className="border border-line bg-white p-5">
                   <p className="stat-num">{stat.value}</p>
                   <p className="mt-1 text-sm text-ink/65">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          </FadeIn>
+
+          <FadeIn className="mt-8">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {live.map((stat) => (
+                <div key={stat.label} className="border border-line bg-sand p-4">
+                  <p className="font-display text-2xl text-brand-deep">{stat.value}</p>
+                  <p className="mt-1 text-xs text-ink/60">{stat.label}</p>
                 </div>
               ))}
             </div>
@@ -61,19 +84,34 @@ export default function CommandCentrePage() {
                     </li>
                   ))}
                 </ul>
+                <Link href="/dashboard" className="btn-secondary mt-6">
+                  Open personal dashboard
+                </Link>
               </div>
             </FadeIn>
             <FadeIn delay={0.08}>
               <div className="border border-line bg-brand-deep p-6 text-white">
-                <h2 className="font-display text-2xl text-accent">
-                  Placement pulse by district
-                </h2>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="font-display text-2xl text-accent">
+                    Placement pulse by district
+                  </h2>
+                  <select
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
+                    className="border border-white/20 bg-brand px-2 py-1 text-sm text-white"
+                  >
+                    <option>All districts</option>
+                    {districtHeat.map((d) => (
+                      <option key={d.district}>{d.district}</option>
+                    ))}
+                  </select>
+                </div>
                 <p className="mt-2 text-sm text-white/70">
-                  Demo analytics view — production will connect to Power BI and
-                  secure API gateways.
+                  Interactive demo analytics — production connects to Power BI /
+                  secure APIs.
                 </p>
                 <div className="mt-6 space-y-4">
-                  {districtHeat.slice(0, 6).map((d) => {
+                  {filtered.map((d) => {
                     const conversion = Math.round((d.supply / d.demand) * 100);
                     return (
                       <div key={d.district}>

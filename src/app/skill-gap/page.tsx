@@ -5,27 +5,42 @@ import Link from "next/link";
 import { PageHero } from "@/components/PageHero";
 import { FadeIn } from "@/components/FadeIn";
 import { districtHeat, skillProfile } from "@/data/portal";
+import { usePortal } from "@/lib/portal-store";
 
 export default function SkillGapPage() {
-  const [role, setRole] = useState("Software Engineer");
-  const [focus, setFocus] = useState("Cloud");
+  const { user, assessment, saveAssessment } = usePortal();
+  const [role, setRole] = useState(assessment?.role ?? "Software Engineer");
+  const [focus, setFocus] = useState(assessment?.focus ?? "Cloud");
+  const [saved, setSaved] = useState(false);
 
   const score = useMemo(() => {
     const base = skillProfile.score;
-    const bump = focus === "Cloud" ? 2 : focus === "Data" ? 4 : 1;
-    return Math.min(95, base + bump + (role.length % 3));
+    const bump = focus === "Cloud" ? 2 : focus === "Data" ? 4 : focus === "Full Stack" ? 3 : 1;
+    const roleBump = role.includes("Cloud") ? 3 : role.includes("Data") ? 2 : 0;
+    return Math.min(95, base + bump + roleBump);
   }, [role, focus]);
+
+  function onSave() {
+    saveAssessment({
+      role,
+      focus,
+      score,
+      updatedAt: new Date().toISOString(),
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2200);
+  }
 
   return (
     <>
       <PageHero
         eyebrow="Module 5.3 · Skill Gap Analysis Engine"
         title="AI-driven competency mapping for every learner"
-        description="Profile student skills against industry demand, surface district heat maps, and generate personalized learning and certification recommendations."
+        description="Profile skills against industry demand, review district heat maps, and save personalized learning recommendations to your TASK profile."
         primaryHref="/learning"
         primaryLabel="Open recommended path"
-        secondaryHref="/mentorship"
-        secondaryLabel="Get a mentor"
+        secondaryHref="/dashboard"
+        secondaryLabel="My score"
       />
 
       <section className="section-pad">
@@ -36,7 +51,11 @@ export default function SkillGapPage() {
               <h2 className="mt-3 font-display text-2xl">
                 Personalize your employability score
               </h2>
-              <p className="mt-2 text-sm text-ink/65">{skillProfile.student}</p>
+              <p className="mt-2 text-sm text-ink/65">
+                {user
+                  ? `${user.name} · ${user.stream} · ${user.district}`
+                  : skillProfile.student}
+              </p>
 
               <label className="mt-6 block text-sm font-medium">
                 Target role
@@ -112,6 +131,18 @@ export default function SkillGapPage() {
                   ))}
                 </ul>
               </div>
+
+              <button type="button" className="btn-primary mt-6" onClick={onSave}>
+                Save score to profile
+              </button>
+              {saved ? (
+                <p className="mt-3 text-sm text-brand">
+                  Saved.{" "}
+                  <Link href="/dashboard" className="font-semibold underline">
+                    View on dashboard
+                  </Link>
+                </p>
+              ) : null}
             </div>
           </FadeIn>
 
@@ -135,18 +166,10 @@ export default function SkillGapPage() {
                       </span>
                     </div>
                     <div className="flex h-2.5 overflow-hidden rounded-full bg-mist">
-                      <div
-                        className="bg-brand"
-                        style={{ width: `${d.demand}%` }}
-                        title="Demand"
-                      />
+                      <div className="bg-brand" style={{ width: `${d.demand}%` }} />
                     </div>
                     <div className="mt-1 flex h-2 overflow-hidden rounded-full bg-mist">
-                      <div
-                        className="bg-accent"
-                        style={{ width: `${d.supply}%` }}
-                        title="Supply"
-                      />
+                      <div className="bg-accent" style={{ width: `${d.supply}%` }} />
                     </div>
                   </div>
                 ))}

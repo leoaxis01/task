@@ -1,15 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState } from "react";
-import { Menu, X, ChevronDown } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import {
+  Bell,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  Search,
+  X,
+} from "lucide-react";
 import { navItems } from "@/data/portal";
+import { usePortal } from "@/lib/portal-store";
 
 export function SiteHeader() {
   const pathname = usePathname();
+  const router = useRouter();
+  const {
+    user,
+    logout,
+    language,
+    setLanguage,
+    notifications,
+    unreadCount,
+    markNotificationsRead,
+    hydrated,
+  } = usePortal();
   const [open, setOpen] = useState(false);
-  const [lang, setLang] = useState<"EN" | "TE">("EN");
+  const [showNotes, setShowNotes] = useState(false);
+  const [query, setQuery] = useState("");
+
+  const links = useMemo(() => {
+    const base = [...navItems];
+    if (user) base.unshift({ href: "/dashboard", label: "My Dashboard" });
+    return base;
+  }, [user]);
+
+  function onSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const q = query.trim();
+    if (!q) return;
+    router.push(`/search?q=${encodeURIComponent(q)}`);
+    setOpen(false);
+  }
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-mist/90 backdrop-blur-md">
@@ -30,13 +64,13 @@ export function SiteHeader() {
                 <button
                   key={code}
                   type="button"
-                  onClick={() => setLang(code)}
+                  onClick={() => setLanguage(code)}
                   className={`px-2 py-0.5 ${
-                    lang === code ? "bg-accent text-ink" : "bg-transparent"
+                    language === code ? "bg-accent text-ink" : "bg-transparent"
                   }`}
-                  aria-pressed={lang === code}
+                  aria-pressed={language === code}
                 >
-                  {code}
+                  {code === "EN" ? "English" : "తెలుగు"}
                 </button>
               ))}
             </div>
@@ -55,20 +89,35 @@ export function SiteHeader() {
               TASK
             </span>
             <span className="block truncate text-[11px] text-ink/60 sm:text-xs">
-              Telangana Academy for Skill and Knowledge
+              {language === "TE"
+                ? "తెలంగాణ నైపుణ్య మరియు జ్ఞాన అకాడమీ"
+                : "Telangana Academy for Skill and Knowledge"}
             </span>
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-5 xl:flex">
-          {navItems.map((item) => {
+        <form
+          onSubmit={onSearch}
+          className="hidden max-w-xs flex-1 items-center gap-2 rounded-md border border-line bg-white px-3 py-1.5 lg:flex"
+        >
+          <Search size={16} className="text-ink/40" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search courses, jobs, mentors..."
+            className="w-full bg-transparent text-sm outline-none placeholder:text-ink/40"
+          />
+        </form>
+
+        <nav className="hidden items-center gap-3 2xl:gap-4 xl:flex">
+          {links.map((item) => {
             const active =
               pathname === item.href || pathname.startsWith(`${item.href}/`);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`nav-link ${active ? "nav-link-active" : ""}`}
+                className={`nav-link whitespace-nowrap ${active ? "nav-link-active" : ""}`}
               >
                 {item.label}
               </Link>
@@ -77,12 +126,76 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
-          <Link href="/login" className="btn-secondary">
-            Sign In
-          </Link>
-          <Link href="/register" className="btn-primary">
-            Register
-          </Link>
+          {hydrated && user ? (
+            <>
+              <div className="relative">
+                <button
+                  type="button"
+                  className="relative rounded-md border border-line bg-white p-2"
+                  aria-label="Notifications"
+                  onClick={() => {
+                    setShowNotes((v) => !v);
+                    markNotificationsRead();
+                  }}
+                >
+                  <Bell size={18} />
+                  {unreadCount > 0 ? (
+                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-ink">
+                      {unreadCount}
+                    </span>
+                  ) : null}
+                </button>
+                {showNotes ? (
+                  <div className="absolute right-0 mt-2 w-80 border border-line bg-white shadow-lift">
+                    <div className="border-b border-line px-3 py-2 text-sm font-semibold">
+                      Notifications
+                    </div>
+                    <ul className="max-h-72 overflow-auto">
+                      {notifications.length === 0 ? (
+                        <li className="px-3 py-4 text-sm text-ink/55">
+                          No notifications yet.
+                        </li>
+                      ) : (
+                        notifications.slice(0, 8).map((n) => (
+                          <li
+                            key={n.id}
+                            className="border-b border-line px-3 py-2 text-sm last:border-0"
+                          >
+                            <p className="font-medium">{n.title}</p>
+                            <p className="text-ink/60">{n.body}</p>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+              <Link href="/dashboard" className="btn-secondary">
+                <LayoutDashboard size={16} />
+                {user.name.split(" ")[0]}
+              </Link>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => {
+                  logout();
+                  router.push("/");
+                }}
+              >
+                <LogOut size={16} />
+                Sign out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link href="/login" className="btn-secondary">
+                Sign In
+              </Link>
+              <Link href="/register" className="btn-primary">
+                Register
+              </Link>
+            </>
+          )}
         </div>
 
         <button
@@ -97,8 +210,19 @@ export function SiteHeader() {
 
       {open && (
         <div className="border-t border-line bg-white xl:hidden">
-          <nav className="container-page flex flex-col gap-1 py-3">
-            {navItems.map((item) => (
+          <form onSubmit={onSearch} className="container-page flex gap-2 py-3">
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search portal..."
+              className="flex-1 border border-line bg-mist px-3 py-2 text-sm"
+            />
+            <button type="submit" className="btn-primary">
+              Go
+            </button>
+          </form>
+          <nav className="container-page flex flex-col gap-1 pb-3">
+            {links.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
@@ -108,37 +232,48 @@ export function SiteHeader() {
                 {item.label}
               </Link>
             ))}
+            <Link
+              href="/resume"
+              className="rounded-md px-3 py-2 text-sm font-medium text-ink/80 hover:bg-brand-soft"
+              onClick={() => setOpen(false)}
+            >
+              Resume Builder
+            </Link>
             <div className="mt-2 flex gap-2 px-1 pb-2">
-              <Link href="/login" className="btn-secondary flex-1" onClick={() => setOpen(false)}>
-                Sign In
-              </Link>
-              <Link href="/register" className="btn-primary flex-1" onClick={() => setOpen(false)}>
-                Register
-              </Link>
+              {user ? (
+                <button
+                  type="button"
+                  className="btn-primary flex-1"
+                  onClick={() => {
+                    logout();
+                    setOpen(false);
+                    router.push("/");
+                  }}
+                >
+                  Sign out
+                </button>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="btn-secondary flex-1"
+                    onClick={() => setOpen(false)}
+                  >
+                    Sign In
+                  </Link>
+                  <Link
+                    href="/register"
+                    className="btn-primary flex-1"
+                    onClick={() => setOpen(false)}
+                  >
+                    Register
+                  </Link>
+                </>
+              )}
             </div>
           </nav>
         </div>
       )}
-
-      <div className="hidden border-t border-ink/10 bg-white/60 lg:block">
-        <div className="container-page flex items-center gap-6 overflow-x-auto py-2 text-xs text-ink/65">
-          <span className="inline-flex items-center gap-1 font-semibold text-brand">
-            Quick access <ChevronDown size={14} />
-          </span>
-          <Link href="/courses/engineering" className="hover:text-brand">
-            Engineering courses
-          </Link>
-          <Link href="/jobs" className="hover:text-brand">
-            Internship marketplace
-          </Link>
-          <Link href="/skill-gap" className="hover:text-brand">
-            Employability score
-          </Link>
-          <Link href="/command-centre" className="hover:text-brand">
-            District dashboards
-          </Link>
-        </div>
-      </div>
     </header>
   );
 }

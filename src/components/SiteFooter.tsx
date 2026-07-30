@@ -36,8 +36,13 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
-              <Link href="/courses" className="hover:text-white">
-                Skill Offerings
+              <Link href="/dashboard" className="hover:text-white">
+                My Dashboard
+              </Link>
+            </li>
+            <li>
+              <Link href="/resume" className="hover:text-white">
+                Resume Builder
               </Link>
             </li>
             <li>
