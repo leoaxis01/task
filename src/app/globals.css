@@ -1,0 +1,106 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: 12 31 26;
+  --mist: 238 243 240;
+  --brand: 13 92 69;
+  --brand-deep: 7 53 40;
+  --brand-soft: 215 235 227;
+  --accent: 245 185 66;
+  --accent-soft: 255 243 209;
+  --sand: 247 244 238;
+  --line: 12 31 26;
+  --background: rgb(var(--mist));
+  --foreground: rgb(var(--ink));
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: rgb(var(--ink));
+  background: rgb(var(--mist));
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+::selection {
+  background: rgb(var(--accent));
+  color: rgb(var(--ink));
+}
+
+@layer components {
+  .container-page {
+    @apply mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8;
+  }
+
+  .section-pad {
+    @apply py-16 sm:py-20 lg:py-24;
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold uppercase tracking-[0.18em] text-brand;
+  }
+
+  .display {
+    @apply font-display text-4xl leading-[1.1] tracking-tight text-ink sm:text-5xl lg:text-6xl;
+  }
+
+  .lede {
+    @apply max-w-2xl text-base leading-relaxed text-ink/70 sm:text-lg;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-5 py-2.5 text-sm font-semibold transition duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand text-white hover:bg-brand-deep;
+  }
+
+  .btn-secondary {
+    @apply btn border border-ink/15 bg-white/70 text-ink backdrop-blur hover:border-brand/40 hover:bg-white;
+  }
+
+  .btn-accent {
+    @apply btn bg-accent text-ink hover:brightness-95;
+  }
+
+  .surface {
+    @apply border border-line bg-white/80 backdrop-blur-sm;
+  }
+
+  .nav-link {
+    @apply text-sm font-medium text-ink/75 transition hover:text-brand;
+  }
+
+  .nav-link-active {
+    @apply text-brand;
+  }
+
+  .table-wrap {
+    @apply overflow-x-auto border border-line bg-white;
+  }
+
+  .data-table {
+    @apply min-w-full text-left text-sm;
+  }
+
+  .data-table th {
+    @apply whitespace-nowrap border-b border-line bg-brand-soft/60 px-3 py-3 font-semibold text-brand-deep;
+  }
+
+  .data-table td {
+    @apply border-b border-ink/10 px-3 py-3 align-top text-ink/80;
+  }
+
+  .data-table tr:last-child td {
+    @apply border-b-0;
+  }
+
+  .stat-num {
+    @apply font-display text-3xl text-brand-deep sm:text-4xl;
+  }
+}
