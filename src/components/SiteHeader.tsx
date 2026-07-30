@@ -179,7 +179,7 @@ export function SiteHeader() {
                 className="btn-primary"
                 onClick={() => {
                   logout();
-                  router.push("/");
+                  window.location.assign("/");
                 }}
               >
                 <LogOut size={16} />
@@ -247,7 +247,7 @@ export function SiteHeader() {
                   onClick={() => {
                     logout();
                     setOpen(false);
-                    router.push("/");
+                    window.location.assign("/");
                   }}
                 >
                   Sign out
